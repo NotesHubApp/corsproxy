@@ -1,0 +1,21 @@
+{
+  "name": "corsproxy",
+  "version": "1.0.0",
+  "description": "Serverless Cors Proxy",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NotesHubApp/corsproxy.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/NotesHubApp/corsproxy/issues"
+  },
+  "homepage": "https://github.com/NotesHubApp/corsproxy#readme",
+  "dependencies": {
+    "@vercel/node": "^5.1.0",
+    "micro": "^10.0.1",
+    "micro-cors": "^0.1.1"
+  }
+}
