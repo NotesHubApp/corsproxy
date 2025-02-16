@@ -1,9 +1,8 @@
 import { IncomingMessage, ServerResponse } from 'http'
-import { RequestHandler, send } from 'micro'
-import { VercelRequest, VercelResponse } from '@vercel/node'
 import fetch, { Headers } from 'node-fetch'
 
 import microCors from 'micro-cors'
+import { send } from 'micro'
 import url from 'url'
 
 const middleware = CorsProxyMiddleware({
@@ -14,9 +13,14 @@ const middleware = CorsProxyMiddleware({
   customUserAgent: 'app/noteshub'
 })
 
-export default async function(request: VercelRequest, response: VercelResponse) {
+/**
+ * 
+ * @param {IncomingMessage} request 
+ * @param {ServerResponse} response 
+ */
+export default async function(request, response) {
   middleware(request, response, () => {
-    const u = url.parse(request.url!, true)
+    const u = url.parse(request.url, true)
 
     if (!u.search) {
       response.setHeader('content-type', 'text/html')
@@ -31,18 +35,38 @@ export default async function(request: VercelRequest, response: VercelResponse) 
 
 
 // Utils
-function getProxyUrlFromParam(u: url.UrlWithParsedQuery, paramName: string) {
-  const decodedProxyUrl = decodeURIComponent(u.query[paramName] as string)
+/**
+ * 
+ * @param {url.UrlWithParsedQuery} u 
+ * @param {string} paramName 
+ * @returns 
+ */
+function getProxyUrlFromParam(u, paramName) {
+  const decodedProxyUrl = decodeURIComponent(u.query[paramName])
   return url.parse(decodedProxyUrl, true)
 }
 
 // Midleware
-type Predicate = (req: IncomingMessage, res?: ServerResponse) => boolean
-type Next = (err?: string) => void
-type Middleware = (req: IncomingMessage, res: ServerResponse, next: Next) => void
+/**
+ * @typedef {(req: IncomingMessage, res?: ServerResponse) => boolean} Predicate
+ * @typedef {(err?: string) => void} Next
+ * @typedef {(req: IncomingMessage, res: ServerResponse, next: Next) => void} Middleware
+ */
 
-function filter(predicate: Predicate, middleware: Middleware) {
-  function corsProxyMiddleware (req: IncomingMessage, res: ServerResponse, next: Next) {
+/**
+ * 
+ * @param {Predicate} predicate 
+ * @param {Middleware} middleware 
+ * @returns 
+ */
+function filter(predicate, middleware) {
+  /**
+   * 
+   * @param {IncomingMessage} req 
+   * @param {ServerResponse} res 
+   * @param {Next} next 
+   */
+  function corsProxyMiddleware (req, res, next) {
     if (predicate(req, res)) {
       middleware(req, res, next)
     } else {
@@ -53,9 +77,24 @@ function filter(predicate: Predicate, middleware: Middleware) {
   return corsProxyMiddleware
 }
 
-function compose(...handlers: Middleware[]) {
-  const composeTwo = (handler1: Middleware, handler2: Middleware) => {
-    function composed (req: IncomingMessage, res: ServerResponse, next: Next) {
+/**
+ * 
+ * @param  {...Middleware} handlers 
+ */
+function compose(...handlers) {
+  /**
+   * 
+   * @param {Middleware} handler1 
+   * @param {Middleware} handler2 
+   */
+  const composeTwo = (handler1, handler2) => {
+    /**
+     * 
+     * @param {IncomingMessage} req 
+     * @param {ServerResponse} res 
+     * @param {Next} next 
+     */
+    function composed (req, res, next) {
       handler1(req, res, (err) => {
         if (err) {
           return next(err)
@@ -70,31 +109,44 @@ function compose(...handlers: Middleware[]) {
   let result = handlers.pop()
 
   while(handlers.length) {
-    result = composeTwo(handlers.pop()!, result!)
+    result = composeTwo(handlers.pop(), result)
   }
 
   return result
 }
 
-function noop (_req: IncomingMessage, _res: ServerResponse, next: Next) {
+/**
+ * 
+ * @param {IncomingMessage} _req 
+ * @param {ServerResponse} _res 
+ * @param {Next} next 
+ */
+function noop (_req, _res, next) {
   next()
 }
 
-type CorsProxyMiddlewareParams = {
-  origin: string
-  customUserAgent: string
-  insecureOrigins: string[]
-  authorization: Middleware
-  urlParamName?: string
-}
+/**
+ * @typedef {{
+*   origin: string
+*   customUserAgent: string
+*   insecureOrigins: string[]
+*   authorization: Middleware
+*   urlParamName?: string
+* }} CorsProxyMiddlewareParams
+ */
 
+/**
+ * 
+ * @param {CorsProxyMiddlewareParams} param0 
+ * @returns 
+ */
 function CorsProxyMiddleware({
   origin,
   insecureOrigins,
   authorization,
   customUserAgent,
   urlParamName
-}: CorsProxyMiddlewareParams) {
+}) {
   const allowHeaders = [
     'accept-encoding',
     'accept-language',
@@ -146,7 +198,13 @@ function CorsProxyMiddleware({
     return true
   }
 
-  function sendCorsOK(req: IncomingMessage, res: ServerResponse, next: Next) {
+  /**
+   * 
+   * @param {IncomingMessage} req 
+   * @param {ServerResponse} res 
+   * @param {Next} next 
+   */
+  function sendCorsOK(req, res, next) {
     // Handle CORS preflight request
     if (req.method === 'OPTIONS') {
       return send(res, 200, '')
@@ -155,7 +213,12 @@ function CorsProxyMiddleware({
     }
   }
 
-  function middleware(req: IncomingMessage, res: ServerResponse) {
+  /**
+   * 
+   * @param {IncomingMessage} req 
+   * @param {ServerResponse} res 
+   */
+  function middleware(req, res) {
     const headers = new Headers()
     for (const allowedHeader of allowHeaders) {
       const reqHeader = req.headers[allowedHeader]
@@ -175,13 +238,17 @@ function CorsProxyMiddleware({
       headers.set('user-agent', customUserAgent)
     }
 
-    const u = url.parse(req.url!, true)
-    let proxyUrl: string
+    const u = url.parse(req.url, true)
+    
+    /**
+     * @type {string}
+     */
+    let proxyUrl
     if (urlParamName) {
       proxyUrl = getProxyUrlFromParam(u, urlParamName).href
     } else {
-      const p = u.path!
-      const parts = p.match(/\/([^/]*)\/(.*)/)!
+      const p = u.path
+      const parts = p.match(/\/([^/]*)\/(.*)/)
       const pathdomain = parts[1]
       const remainingpath = parts[2]
       const protocol = insecureOrigins.includes(pathdomain) ? 'http' : 'https'
@@ -196,12 +263,12 @@ function CorsProxyMiddleware({
       body: (req.method !== 'GET' && req.method !== 'HEAD') ? req : undefined
     }).then(f => {
       if (f.headers.has('location')) {
-        const originalLocation = f.headers.get('location')!
+        const originalLocation = f.headers.get('location')
 
         // Modify the location so the client continues to use the proxy
         let newLocation = ''
         if (urlParamName) {
-          const tempUrl = url.parse(req.url!, true)
+          const tempUrl = url.parse(req.url, true)
           tempUrl.query[urlParamName] = encodeURIComponent(originalLocation)
           newLocation = url.format({
             protocol: tempUrl.protocol,
@@ -221,7 +288,7 @@ function CorsProxyMiddleware({
       for (const h of exposeHeaders) {
         if (h === 'content-length') continue
         if (f.headers.has(h)) {
-          res.setHeader(h, f.headers.get(h)!)
+          res.setHeader(h, f.headers.get(h))
         }
       }
 
@@ -229,6 +296,10 @@ function CorsProxyMiddleware({
         res.setHeader('x-redirected-url', f.url)
       }
       f.body.pipe(res)
+    })
+    .catch(err => {
+      console.error(err)
+      send(res, 400, 'Something broke!')
     })
   }
 
@@ -240,5 +311,5 @@ function CorsProxyMiddleware({
     origin
   })
 
-  return filter(predicate, cors(compose(sendCorsOK, authorization, middleware) as RequestHandler))
+  return filter(predicate, cors(compose(sendCorsOK, authorization, middleware)))
 }
