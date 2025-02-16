@@ -9,8 +9,8 @@ app.all('*', (req, res) => {
   proxy(req, res)
 })
 
-app.set('port', process.env.PORT || 5023)
+const PORT = process.env.PORT || 5023
 
-app.listen(app.get('port'), function () {
-  console.log('Proxy server listening on port ' + app.get('port'))
+app.listen(PORT, function () {
+  console.log(`Proxy server listening on port ${PORT}`)
 })
