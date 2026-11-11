@@ -46,6 +46,22 @@ function getProxyUrlFromParam(u, paramName) {
   return url.parse(decodedProxyUrl, true)
 }
 
+const DecodableEncodings = ['gzip', 'x-gzip', 'deflate', 'x-deflate', 'br', 'identity']
+
+/**
+ * The codings of an Accept-Encoding header that node-fetch decodes (with their q-values), or '' for none.
+ *
+ * @param {string | null} acceptEncoding
+ * @returns {string}
+ */
+function decodableEncodings(acceptEncoding) {
+  return (acceptEncoding ?? '')
+    .split(',')
+    .map(coding => coding.trim())
+    .filter(coding => DecodableEncodings.includes(coding.split(';')[0].trim().toLowerCase()))
+    .join(', ')
+}
+
 // Midleware
 /**
  * @typedef {(req: IncomingMessage, res?: ServerResponse) => boolean} Predicate
@@ -232,6 +248,17 @@ function CorsProxyMiddleware({
           headers.set(allowedHeader, reqHeader)
         }
       }
+    }
+
+    // Only the encodings node-fetch can decode: it decodes the body and leaves out its content-encoding,
+    // so a body in any other (zstd, which browsers offer and Cloudflare prefers) reached the client still
+    // compressed, with nothing saying so
+    const acceptEncoding = decodableEncodings(headers.get('accept-encoding'))
+    if (acceptEncoding) {
+      headers.set('accept-encoding', acceptEncoding)
+    } else {
+      // node-fetch then asks for gzip and deflate
+      headers.delete('accept-encoding')
     }
 
     if (customUserAgent) {
